@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Kotuwa Mock Dispatch</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0c0c14;
+      color: #fff;
+      min-height: 100vh;
+      padding: 24px;
+    }
+    h1 { font-size: 1.5rem; margin-bottom: 4px; }
+    .subtitle { color: #a8a8bc; margin-bottom: 24px; font-size: 0.9rem; }
+    .card {
+      background: #1a1a2e;
+      border: 1px solid rgba(147, 104, 183, 0.35);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 16px;
+    }
+    .card h2 { font-size: 1rem; margin-bottom: 12px; color: #9368b7; }
+    .driver {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      font-size: 0.9rem;
+    }
+    .driver:last-child { border-bottom: none; }
+    .dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+    .dot.online { background: #22c55e; }
+    .dot.offline { background: #6b7280; }
+    .dot.connected { background: #f7b731; }
+    label { display: block; margin-bottom: 6px; font-size: 0.85rem; color: #a8a8bc; }
+    select, button {
+      width: 100%;
+      padding: 12px;
+      border-radius: 8px;
+      border: none;
+      font-size: 1rem;
+    }
+    select {
+      background: #252538;
+      color: #fff;
+      margin-bottom: 12px;
+    }
+    button {
+      background: #d87c31;
+      color: #fff;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    button:hover { background: #c06d28; }
+    button:disabled { background: #555; cursor: not-allowed; }
+    .log-item {
+      font-size: 0.8rem;
+      color: #a8a8bc;
+      padding: 4px 0;
+    }
+    .status { font-size: 0.8rem; color: #22c55e; margin-top: 8px; }
+    .error { color: #ef4444; }
+  </style>
+</head>
+<body>
+  <h1>Kotuwa Mock Dispatch</h1>
+  <p class="subtitle">Dispatch test orders to online drivers connected via WebSocket</p>
+
+  <div class="card">
+    <h2>Connected Drivers</h2>
+    <div id="drivers-list">Loading...</div>
+  </div>
+
+  <div class="card">
+    <h2>Dispatch Order</h2>
+    <label for="template">Order template</label>
+    <select id="template"></select>
+    <button id="dispatch-btn">Dispatch Order to Online Drivers</button>
+    <p id="dispatch-status" class="status"></p>
+  </div>
+
+  <div class="card">
+    <h2>Recent Dispatches</h2>
+    <div id="log">No dispatches yet.</div>
+  </div>
+
+  <script>
+    const API = window.location.origin;
+
+    function formatAud(amount) {
+      return new Intl.NumberFormat('en-AU', {
+        style: 'currency',
+        currency: 'AUD',
+      }).format(amount);
+    }
+
+    async function loadTemplates() {
+      const res = await fetch(`${API}/mock/templates`);
+      const templates = await res.json();
+      const select = document.getElementById('template');
+      select.innerHTML = templates.map(t =>
+        `<option value="${t.id}">${t.label} — ${formatAud(t.earnings)}</option>`
+      ).join('');
+    }
+
+    async function loadDrivers() {
+      const res = await fetch(`${API}/mock/drivers`);
+      const drivers = await res.json();
+      const el = document.getElementById('drivers-list');
+      if (!drivers.length) {
+        el.innerHTML = '<p class="log-item">No drivers registered.</p>';
+        return;
+      }
+      el.innerHTML = drivers.map(d => {
+        const status = d.connected && d.isOnline ? 'online' : d.connected ? 'connected' : 'offline';
+        const label = d.connected && d.isOnline ? 'online' : d.connected ? 'connected, offline' : 'not connected';
+        const ago = d.lastSeenAt ? `${Math.round((Date.now() - d.lastSeenAt) / 1000)}s ago` : 'never';
+        return `<div class="driver">
+          <span class="dot ${status}"></span>
+          <span><strong>${d.name}</strong> — ${label} — last seen ${ago}</span>
+        </div>`;
+      }).join('');
+    }
+
+    async function loadLog() {
+      const res = await fetch(`${API}/mock/dispatch-log`);
+      const log = await res.json();
+      const el = document.getElementById('log');
+      if (!log.length) {
+        el.innerHTML = '<p class="log-item">No dispatches yet.</p>';
+        return;
+      }
+      el.innerHTML = log.map(item => {
+        const time = new Date(item.at).toLocaleTimeString();
+        return `<div class="log-item">${item.orderId} (${item.templateId}) at ${time}</div>`;
+      }).join('');
+    }
+
+    document.getElementById('dispatch-btn').addEventListener('click', async () => {
+      const btn = document.getElementById('dispatch-btn');
+      const status = document.getElementById('dispatch-status');
+      const templateId = document.getElementById('template').value;
+      btn.disabled = true;
+      status.textContent = 'Dispatching...';
+      status.className = 'status';
+      try {
+        const res = await fetch(`${API}/mock/dispatch`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ templateId }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || 'Dispatch failed');
+        status.textContent = `Dispatched ${data.orderId} to ${data.offerCount} driver(s)`;
+        await loadLog();
+        await loadDrivers();
+      } catch (e) {
+        status.textContent = e.message;
+        status.className = 'status error';
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    async function refresh() {
+      await Promise.all([loadTemplates(), loadDrivers(), loadLog()]);
+    }
+
+    refresh();
+    setInterval(refresh, 3000);
+  </script>
+</body>
+</html>

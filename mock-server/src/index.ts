@@ -10,6 +10,7 @@ import {
   attachSocket,
   declineOffer,
   detachSocket,
+  dispatchCustomOrder,
   dispatchOrder,
   getConnectedDriversForDashboard,
 } from './dispatch.js';
@@ -24,7 +25,7 @@ import {
   sessions,
   tokenToDriverId,
 } from './store.js';
-import type { WsClientMessage } from './types.js';
+import type { CustomDispatchBody, WsClientMessage } from './types.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT ?? 3001);
@@ -201,22 +202,49 @@ app.post<{ Params: { id: string }; Body: { photoUri?: string; skipped?: boolean 
 
 // ─── Mock dashboard endpoints ───────────────────────────────────────────────
 
-app.get('/mock/templates', async () =>
-  ORDER_TEMPLATES.map((t) => ({ id: t.id, label: t.label, earnings: t.earnings }))
-);
+app.get('/mock/templates', async () => ORDER_TEMPLATES);
 
 app.get('/mock/drivers', async () => getConnectedDriversForDashboard());
 
 app.get('/mock/dispatch-log', async () => dispatchLog);
 
-app.post<{ Body: { templateId?: string } }>('/mock/dispatch', async (req, reply) => {
-  const templateId = req.body?.templateId ?? ORDER_TEMPLATES[0].id;
-  const result = dispatchOrder(templateId);
-  if (result.offerCount === 0) {
-    return reply.status(400).send({ message: 'No online drivers available', ...result });
+function isCustomDispatchBody(body: unknown): body is CustomDispatchBody {
+  if (!body || typeof body !== 'object') return false;
+  const b = body as Record<string, unknown>;
+  return (
+    typeof b.merchantName === 'string' &&
+    typeof b.pickup === 'object' &&
+    b.pickup !== null &&
+    typeof b.dropoff === 'object' &&
+    b.dropoff !== null &&
+    typeof b.earnings === 'number'
+  );
+}
+
+app.post<{ Body: { templateId?: string } | CustomDispatchBody }>(
+  '/mock/dispatch',
+  async (req, reply) => {
+    const body = req.body;
+
+    if (isCustomDispatchBody(body)) {
+      const result = dispatchCustomOrder(body);
+      if ('error' in result) {
+        return reply.status(400).send({ message: result.error });
+      }
+      if (result.offerCount === 0) {
+        return reply.status(400).send({ message: 'No online drivers available', ...result });
+      }
+      return result;
+    }
+
+    const templateId = (body as { templateId?: string })?.templateId ?? ORDER_TEMPLATES[0].id;
+    const result = dispatchOrder(templateId);
+    if (result.offerCount === 0) {
+      return reply.status(400).send({ message: 'No online drivers available', ...result });
+    }
+    return result;
   }
-  return result;
-});
+);
 
 app.get('/dispatch', async (_req, reply) => {
   return reply.sendFile('dispatch.html');

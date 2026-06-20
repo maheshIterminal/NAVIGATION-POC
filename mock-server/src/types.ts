@@ -39,6 +39,17 @@ export type OrderTemplate = {
   earnings: number;
 };
 
+export type CustomDispatchBody = {
+  merchantName: string;
+  pickup: LocationPoint;
+  dropoff: LocationPoint;
+  earnings: number;
+};
+
+export type DispatchRequestBody =
+  | { templateId: string }
+  | CustomDispatchBody;
+
 export type Order = {
   id: string;
   templateId: string;

@@ -12,6 +12,7 @@
       color: #fff;
       min-height: 100vh;
       padding: 24px;
+      max-width: 720px;
     }
     h1 { font-size: 1.5rem; margin-bottom: 4px; }
     .subtitle { color: #a8a8bc; margin-bottom: 24px; font-size: 0.9rem; }
@@ -37,18 +38,21 @@
     .dot.offline { background: #6b7280; }
     .dot.connected { background: #f7b731; }
     label { display: block; margin-bottom: 6px; font-size: 0.85rem; color: #a8a8bc; }
-    select, button {
+    select, button, input, textarea {
       width: 100%;
       padding: 12px;
       border-radius: 8px;
       border: none;
       font-size: 1rem;
+      font-family: inherit;
     }
-    select {
+    input, textarea, select {
       background: #252538;
       color: #fff;
-      margin-bottom: 12px;
+      border: 1px solid rgba(255,255,255,0.08);
     }
+    textarea { min-height: 64px; resize: vertical; }
+    select { margin-bottom: 12px; }
     button {
       background: #d87c31;
       color: #fff;
@@ -57,6 +61,59 @@
     }
     button:hover { background: #c06d28; }
     button:disabled { background: #555; cursor: not-allowed; }
+    button.secondary {
+      background: #252538;
+      border: 1px solid rgba(147, 104, 183, 0.45);
+      margin-top: 8px;
+    }
+    button.secondary:hover { background: #2f2f45; }
+    button.small {
+      width: auto;
+      padding: 8px 12px;
+      font-size: 0.85rem;
+      margin-top: 0;
+    }
+    .tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+    .tab {
+      flex: 1;
+      padding: 10px;
+      border-radius: 8px;
+      background: #252538;
+      color: #a8a8bc;
+      border: 1px solid transparent;
+      cursor: pointer;
+      font-weight: 600;
+      text-align: center;
+    }
+    .tab.active {
+      background: rgba(216, 124, 49, 0.15);
+      color: #fff;
+      border-color: rgba(216, 124, 49, 0.5);
+    }
+    .panel { display: none; }
+    .panel.active { display: block; }
+    .field { margin-bottom: 14px; }
+    .row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .row-actions {
+      display: flex;
+      gap: 8px;
+      align-items: flex-end;
+      margin-bottom: 14px;
+    }
+    .row-actions .field { flex: 1; margin-bottom: 0; }
+    .hint {
+      font-size: 0.75rem;
+      color: #6b7280;
+      margin-top: 4px;
+    }
     .log-item {
       font-size: 0.8rem;
       color: #a8a8bc;
@@ -64,6 +121,13 @@
     }
     .status { font-size: 0.8rem; color: #22c55e; margin-top: 8px; }
     .error { color: #ef4444; }
+    .section-label {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #9368b7;
+      margin: 16px 0 10px;
+    }
   </style>
 </head>
 <body>
@@ -77,9 +141,71 @@
 
   <div class="card">
     <h2>Dispatch Order</h2>
-    <label for="template">Order template</label>
-    <select id="template"></select>
-    <button id="dispatch-btn">Dispatch Order to Online Drivers</button>
+
+    <div class="tabs">
+      <button type="button" class="tab active" data-tab="custom">Custom locations</button>
+      <button type="button" class="tab" data-tab="template">Quick template</button>
+    </div>
+
+    <div id="panel-custom" class="panel active">
+      <div class="field">
+        <label for="merchant">Store / merchant name</label>
+        <input id="merchant" type="text" placeholder="e.g. Nando's Darwin CBD" />
+      </div>
+
+      <p class="section-label">Pickup (store)</p>
+      <div class="field">
+        <label for="pickup-address">Pickup address</label>
+        <textarea id="pickup-address" placeholder="Full street address"></textarea>
+      </div>
+      <div class="row-actions">
+        <div class="field">
+          <label for="pickup-lat">Latitude</label>
+          <input id="pickup-lat" type="number" step="any" placeholder="-12.4615" />
+        </div>
+        <div class="field">
+          <label for="pickup-lng">Longitude</label>
+          <input id="pickup-lng" type="number" step="any" placeholder="130.8440" />
+        </div>
+        <button type="button" class="small secondary" id="geocode-pickup">Geocode</button>
+      </div>
+
+      <p class="section-label">Dropoff (customer)</p>
+      <div class="field">
+        <label for="dropoff-address">Dropoff address</label>
+        <textarea id="dropoff-address" placeholder="Customer delivery address"></textarea>
+      </div>
+      <div class="row-actions">
+        <div class="field">
+          <label for="dropoff-lat">Latitude</label>
+          <input id="dropoff-lat" type="number" step="any" placeholder="-12.4485" />
+        </div>
+        <div class="field">
+          <label for="dropoff-lng">Longitude</label>
+          <input id="dropoff-lng" type="number" step="any" placeholder="130.8335" />
+        </div>
+        <button type="button" class="small secondary" id="geocode-dropoff">Geocode</button>
+      </div>
+
+      <div class="field">
+        <label for="earnings">Driver earnings (AUD)</label>
+        <input id="earnings" type="number" step="0.01" min="0.01" value="10.50" />
+      </div>
+
+      <button type="button" class="secondary" id="fill-template-btn">Fill from selected template</button>
+      <p class="hint">Geocode uses OpenStreetMap (free). Lat/lng are required for mobile navigation.</p>
+
+      <button type="button" id="dispatch-custom-btn" style="margin-top: 12px;">
+        Dispatch custom order
+      </button>
+    </div>
+
+    <div id="panel-template" class="panel">
+      <label for="template">Order template</label>
+      <select id="template"></select>
+      <button type="button" id="dispatch-template-btn">Dispatch template order</button>
+    </div>
+
     <p id="dispatch-status" class="status"></p>
   </div>
 
@@ -90,6 +216,7 @@
 
   <script>
     const API = window.location.origin;
+    let templates = [];
 
     function formatAud(amount) {
       return new Intl.NumberFormat('en-AU', {
@@ -98,14 +225,144 @@
       }).format(amount);
     }
 
+    function setTab(name) {
+      document.querySelectorAll('.tab').forEach(t => {
+        t.classList.toggle('active', t.dataset.tab === name);
+      });
+      document.querySelectorAll('.panel').forEach(p => {
+        p.classList.toggle('active', p.id === `panel-${name}`);
+      });
+    }
+
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => setTab(tab.dataset.tab));
+    });
+
     async function loadTemplates() {
       const res = await fetch(`${API}/mock/templates`);
-      const templates = await res.json();
+      templates = await res.json();
       const select = document.getElementById('template');
       select.innerHTML = templates.map(t =>
         `<option value="${t.id}">${t.label} — ${formatAud(t.earnings)}</option>`
       ).join('');
     }
+
+    function fillFromTemplate() {
+      const select = document.getElementById('template');
+      const template = templates.find(t => t.id === select.value) ?? templates[0];
+      if (!template) return;
+
+      document.getElementById('merchant').value = template.merchantName;
+      document.getElementById('pickup-address').value = template.pickup.address;
+      document.getElementById('pickup-lat').value = template.pickup.lat;
+      document.getElementById('pickup-lng').value = template.pickup.lng;
+      document.getElementById('dropoff-address').value = template.dropoff.address;
+      document.getElementById('dropoff-lat').value = template.dropoff.lat;
+      document.getElementById('dropoff-lng').value = template.dropoff.lng;
+      document.getElementById('earnings').value = template.earnings;
+      setTab('custom');
+    }
+
+    async function geocodeAddress(address, latId, lngId, statusEl) {
+      const query = address.trim();
+      if (!query) throw new Error('Enter an address first');
+
+      const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(query)}`;
+      const res = await fetch(url, {
+        headers: { 'Accept-Language': 'en', 'User-Agent': 'KotuwaMockDispatch/1.0' },
+      });
+      const results = await res.json();
+      if (!results.length) throw new Error('Address not found — try a fuller address');
+
+      document.getElementById(latId).value = Number(results[0].lat).toFixed(6);
+      document.getElementById(lngId).value = Number(results[0].lon).toFixed(6);
+      if (statusEl) statusEl.textContent = `Geocoded: ${results[0].display_name}`;
+      if (statusEl) statusEl.className = 'status';
+    }
+
+    document.getElementById('geocode-pickup').addEventListener('click', async () => {
+      const status = document.getElementById('dispatch-status');
+      try {
+        await geocodeAddress(
+          document.getElementById('pickup-address').value,
+          'pickup-lat',
+          'pickup-lng',
+          status
+        );
+      } catch (e) {
+        status.textContent = e.message;
+        status.className = 'status error';
+      }
+    });
+
+    document.getElementById('geocode-dropoff').addEventListener('click', async () => {
+      const status = document.getElementById('dispatch-status');
+      try {
+        await geocodeAddress(
+          document.getElementById('dropoff-address').value,
+          'dropoff-lat',
+          'dropoff-lng',
+          status
+        );
+      } catch (e) {
+        status.textContent = e.message;
+        status.className = 'status error';
+      }
+    });
+
+    document.getElementById('fill-template-btn').addEventListener('click', fillFromTemplate);
+
+    function readCustomPayload() {
+      return {
+        merchantName: document.getElementById('merchant').value.trim(),
+        pickup: {
+          address: document.getElementById('pickup-address').value.trim(),
+          lat: Number(document.getElementById('pickup-lat').value),
+          lng: Number(document.getElementById('pickup-lng').value),
+        },
+        dropoff: {
+          address: document.getElementById('dropoff-address').value.trim(),
+          lat: Number(document.getElementById('dropoff-lat').value),
+          lng: Number(document.getElementById('dropoff-lng').value),
+        },
+        earnings: Number(document.getElementById('earnings').value),
+      };
+    }
+
+    async function dispatch(body, btn) {
+      const status = document.getElementById('dispatch-status');
+      btn.disabled = true;
+      status.textContent = 'Dispatching...';
+      status.className = 'status';
+      try {
+        const res = await fetch(`${API}/mock/dispatch`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || 'Dispatch failed');
+        status.textContent = `Dispatched ${data.orderId} to ${data.offerCount} driver(s)`;
+        await loadLog();
+        await loadDrivers();
+      } catch (e) {
+        status.textContent = e.message;
+        status.className = 'status error';
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    document.getElementById('dispatch-custom-btn').addEventListener('click', () => {
+      void dispatch(readCustomPayload(), document.getElementById('dispatch-custom-btn'));
+    });
+
+    document.getElementById('dispatch-template-btn').addEventListener('click', () => {
+      void dispatch(
+        { templateId: document.getElementById('template').value },
+        document.getElementById('dispatch-template-btn')
+      );
+    });
 
     async function loadDrivers() {
       const res = await fetch(`${API}/mock/drivers`);
@@ -136,35 +393,9 @@
       }
       el.innerHTML = log.map(item => {
         const time = new Date(item.at).toLocaleTimeString();
-        return `<div class="log-item">${item.orderId} (${item.templateId}) at ${time}</div>`;
+        return `<div class="log-item">${item.orderId} — ${item.label} at ${time}</div>`;
       }).join('');
     }
-
-    document.getElementById('dispatch-btn').addEventListener('click', async () => {
-      const btn = document.getElementById('dispatch-btn');
-      const status = document.getElementById('dispatch-status');
-      const templateId = document.getElementById('template').value;
-      btn.disabled = true;
-      status.textContent = 'Dispatching...';
-      status.className = 'status';
-      try {
-        const res = await fetch(`${API}/mock/dispatch`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ templateId }),
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.message || 'Dispatch failed');
-        status.textContent = `Dispatched ${data.orderId} to ${data.offerCount} driver(s)`;
-        await loadLog();
-        await loadDrivers();
-      } catch (e) {
-        status.textContent = e.message;
-        status.className = 'status error';
-      } finally {
-        btn.disabled = false;
-      }
-    });
 
     async function refresh() {
       await Promise.all([loadTemplates(), loadDrivers(), loadLog()]);

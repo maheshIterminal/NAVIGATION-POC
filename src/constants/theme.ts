@@ -255,12 +255,15 @@ export const navigationScreenStyles = StyleSheet.create({
     backgroundColor: kotuwaBrand.black,
   },
   map: {
-    ...StyleSheet.absoluteFill,
+    position: 'absolute',
+    left: 0,
+    right: 0,
   },
   overlay: {
-    ...StyleSheet.absoluteFill,
+    ...StyleSheet.absoluteFillObject,
     justifyContent: 'space-between',
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingBottom: 16,
   },
   topBar: {
     flexDirection: 'row',
@@ -318,6 +321,20 @@ export const navigationScreenStyles = StyleSheet.create({
     color: '#FECACA',
     fontSize: 14,
     lineHeight: 20,
+  },
+  warningBanner: {
+    backgroundColor: 'rgba(40, 32, 8, 0.94)',
+    borderRadius: 14,
+    padding: 16,
+    gap: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(247, 183, 49, 0.65)',
+  },
+  warningText: {
+    color: kotuwaBrand.yellow,
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '500',
   },
   arrivedBanner: {
     backgroundColor: 'rgba(0, 0, 0, 0.94)',

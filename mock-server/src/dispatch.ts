@@ -14,6 +14,8 @@ import {
   sessions,
 } from './store.js';
 import type {
+  CustomDispatchBody,
+  LocationPoint,
   Order,
   OrderOffer,
   WsOfferCancelled,
@@ -60,22 +62,17 @@ function scheduleOfferExpiry(offer: OrderOffer): void {
   }, delay);
 }
 
-export function dispatchOrder(templateId: string): { orderId: string; offerCount: number } {
-  const template = ORDER_TEMPLATES.find((t) => t.id === templateId) ?? ORDER_TEMPLATES[0];
+function isValidLocation(point: LocationPoint | undefined): point is LocationPoint {
+  if (!point?.address?.trim()) return false;
+  return Number.isFinite(point.lat) && Number.isFinite(point.lng);
+}
 
-  const orderId = nextOrderId();
-  const order: Order = {
-    id: orderId,
-    templateId: template.id,
-    merchantName: template.merchantName,
-    pickup: template.pickup,
-    dropoff: template.dropoff,
-    earnings: template.earnings,
-    status: 'ready_for_pickup',
-    createdAt: Date.now(),
-  };
-  orders.set(orderId, order);
-  dispatchLog.unshift({ orderId, templateId: template.id, at: Date.now() });
+function broadcastOffersForOrder(
+  order: Order,
+  logLabel: string
+): { orderId: string; offerCount: number } {
+  orders.set(order.id, order);
+  dispatchLog.unshift({ orderId: order.id, label: logLabel, at: Date.now() });
   if (dispatchLog.length > 20) dispatchLog.pop();
 
   let offerCount = 0;
@@ -88,7 +85,7 @@ export function dispatchOrder(templateId: string): { orderId: string; offerCount
     const offerId = nextOfferId();
     const offer: OrderOffer = {
       id: offerId,
-      orderId,
+      orderId: order.id,
       driverId: session.driverId,
       status: 'pending',
       expiresAt,
@@ -101,17 +98,73 @@ export function dispatchOrder(templateId: string): { orderId: string; offerCount
     const msg: WsOrderOffer = {
       type: 'order_offer',
       offerId,
-      orderId,
+      orderId: order.id,
       expiresAt: new Date(expiresAt).toISOString(),
-      merchantName: template.merchantName,
-      pickup: template.pickup,
-      dropoff: template.dropoff,
-      earnings: template.earnings,
+      merchantName: order.merchantName,
+      pickup: order.pickup,
+      dropoff: order.dropoff,
+      earnings: order.earnings,
     };
     sendToDriver(session.driverId, msg);
   }
 
-  return { orderId, offerCount };
+  return { orderId: order.id, offerCount };
+}
+
+export function dispatchOrder(templateId: string): { orderId: string; offerCount: number } {
+  const template = ORDER_TEMPLATES.find((t) => t.id === templateId) ?? ORDER_TEMPLATES[0];
+
+  const order: Order = {
+    id: nextOrderId(),
+    templateId: template.id,
+    merchantName: template.merchantName,
+    pickup: template.pickup,
+    dropoff: template.dropoff,
+    earnings: template.earnings,
+    status: 'ready_for_pickup',
+    createdAt: Date.now(),
+  };
+
+  return broadcastOffersForOrder(order, template.label);
+}
+
+export function dispatchCustomOrder(
+  input: CustomDispatchBody
+): { orderId: string; offerCount: number } | { error: string } {
+  if (!input.merchantName?.trim()) {
+    return { error: 'Merchant name is required' };
+  }
+  if (!isValidLocation(input.pickup)) {
+    return { error: 'Valid pickup address and coordinates are required' };
+  }
+  if (!isValidLocation(input.dropoff)) {
+    return { error: 'Valid dropoff address and coordinates are required' };
+  }
+  if (!Number.isFinite(input.earnings) || input.earnings <= 0) {
+    return { error: 'Earnings must be a positive number' };
+  }
+
+  const order: Order = {
+    id: nextOrderId(),
+    templateId: 'custom',
+    merchantName: input.merchantName.trim(),
+    pickup: {
+      address: input.pickup.address.trim(),
+      lat: input.pickup.lat,
+      lng: input.pickup.lng,
+    },
+    dropoff: {
+      address: input.dropoff.address.trim(),
+      lat: input.dropoff.lat,
+      lng: input.dropoff.lng,
+    },
+    earnings: input.earnings,
+    status: 'ready_for_pickup',
+    createdAt: Date.now(),
+  };
+
+  const logLabel = `${order.merchantName} → ${order.dropoff.address.slice(0, 40)}`;
+  return broadcastOffersForOrder(order, logLabel);
 }
 
 export function acceptOffer(

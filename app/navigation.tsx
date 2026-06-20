@@ -23,6 +23,20 @@ const SDK_HEADER_TOP_INSET = 8;
 /** Space below the SDK turn-by-turn banner before placing the End button */
 const SDK_HEADER_CLEARANCE = 116;
 
+function mapLayoutInsets(insets: {
+  top: number;
+  bottom: number;
+  left: number;
+  right: number;
+}) {
+  return {
+    top: insets.top + SDK_HEADER_TOP_INSET,
+    bottom: insets.bottom,
+    left: insets.left,
+    right: insets.right,
+  };
+}
+
 function parseDestination(params: NavigationRouteParams): Destination | null {
   const lat = Number(params.lat);
   const lng = Number(params.lng);
@@ -94,10 +108,12 @@ export default function NavigationScreen() {
   const legLabel =
     params.leg === 'pickup' ? 'Heading to pickup' : params.leg === 'dropoff' ? 'Heading to customer' : null;
 
+  const safeMapInsets = mapLayoutInsets(insets);
+
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['left', 'right']}>
       <NavigationView
-        style={[styles.map, { top: insets.top + SDK_HEADER_TOP_INSET }]}
+        style={[styles.map, safeMapInsets]}
         headerEnabled
         footerEnabled
         speedometerEnabled
@@ -112,10 +128,7 @@ export default function NavigationScreen() {
         onMapReady={onMapReady}
       />
 
-      <View
-        style={[styles.overlay, { paddingTop: insets.top, paddingBottom: insets.bottom }]}
-        pointerEvents="box-none"
-      >
+      <View style={[styles.overlay, { paddingTop: safeMapInsets.top }]} pointerEvents="box-none">
         {legLabel && isNavigating ? (
           <View style={[styles.topBar, styles.topBarLoading]}>
             <View style={styles.statusPill}>
@@ -152,8 +165,8 @@ export default function NavigationScreen() {
         ) : null}
 
         {errorMessage ? (
-          <View style={styles.errorBanner}>
-            <Text style={styles.errorText}>{errorMessage}</Text>
+          <View style={[styles.warningBanner, { marginBottom: safeMapInsets.bottom }]}>
+            <Text style={styles.warningText}>{errorMessage}</Text>
             <Pressable style={styles.secondaryButton} onPress={() => void retryNavigation()}>
               <Text style={styles.secondaryButtonText}>Retry</Text>
             </Pressable>
@@ -164,7 +177,7 @@ export default function NavigationScreen() {
         ) : null}
 
         {state === 'arrived' ? (
-          <View style={styles.arrivedBanner}>
+          <View style={[styles.arrivedBanner, { marginBottom: safeMapInsets.bottom }]}>
             <Text style={styles.arrivedText}>You have arrived at {destination.title}</Text>
             <Pressable style={styles.primaryButton} onPress={() => void handleArrived()}>
               <Text style={styles.primaryButtonText}>
@@ -174,6 +187,6 @@ export default function NavigationScreen() {
           </View>
         ) : null}
       </View>
-    </View>
+    </SafeAreaView>
   );
 }

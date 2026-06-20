@@ -1,12 +1,14 @@
 import { useEffect } from 'react';
 import { Modal, Pressable, Text, View } from 'react-native';
 import { useOfferCountdown } from '../hooks/useOrderOffer';
+import { useOfferAlertSound } from '../hooks/useOfferAlertSound';
 import { useDriverSession } from '../providers/DriverSessionProvider';
 import { offerModalStyles as styles } from '../constants/theme';
 import { formatAud } from '../utils/currency';
 
 export function OfferModal() {
   const { activeOffer, acceptOffer, declineOffer, clearOffer } = useDriverSession();
+  useOfferAlertSound(activeOffer);
   const secondsLeft = useOfferCountdown(activeOffer?.expiresAt ?? null);
 
   useEffect(() => {

@@ -11,7 +11,7 @@ export const orders = new Map<string, Order>();
 export const offers = new Map<string, OrderOffer>();
 export const orderLocks = new Map<string, string>();
 export const driverStats = new Map<string, DriverStats>();
-export const dispatchLog: { orderId: string; templateId: string; at: number }[] = [];
+export const dispatchLog: { orderId: string; label: string; at: number }[] = [];
 
 let orderCounter = 1;
 let offerCounter = 1;

@@ -19,6 +19,7 @@ const config: ExpoConfig = {
     'expo-router',
     './plugins/withDisableGammaScreens',
     'expo-secure-store',
+    'expo-audio',
     [
       'expo-image-picker',
       {
